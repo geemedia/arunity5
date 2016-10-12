@@ -164,6 +164,14 @@ public class CameraPreferencesActivity extends PreferenceActivity implements
             cam = Camera.open(camIndex);
 
             Camera.Parameters params = cam.getParameters();
+
+            // Turn on camera autofocus
+            List<String> focusModes = params.getSupportedFocusModes();
+            if (focusModes.contains(params.FOCUS_MODE_AUTO)) {
+                params.setFocusMode(params.FOCUS_MODE_AUTO);
+            }
+            cam.setParameters(params);
+
             List<Camera.Size> previewSizes = params.getSupportedPreviewSizes();
             cam.release();
 
