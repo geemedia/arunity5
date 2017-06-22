@@ -59,6 +59,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import org.artoolkit.ar.base.NativeInterface;
 import java.io.IOException;
+import java.util.List;
 
 public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback, Camera.PreviewCallback {
 
@@ -134,7 +135,6 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
         if (camera != null) {
 
             String camResolution = PreferenceManager.getDefaultSharedPreferences(getContext()).getString("pref_cameraResolution", "320x240");
-            String[] dims = camResolution.split("x", 2);
             String camFocusMode = PreferenceManager.getDefaultSharedPreferences(getContext()).getString("pref_cameraFocusMode", "auto");
             if (camFocusMode.toLowerCase().equals("fixed")) {
                 camFocusMode = Camera.Parameters.FOCUS_MODE_FIXED;
@@ -143,7 +143,7 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
             }
 
             Camera.Parameters parameters = camera.getParameters();
-            parameters.setPreviewSize(Integer.parseInt(dims[0]), Integer.parseInt(dims[1]));
+            SetCameraSize(parameters, camResolution);
             if (parameters.getSupportedFocusModes().contains(camFocusMode)) {
                 parameters.setFocusMode(camFocusMode);
             }
@@ -178,6 +178,44 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
 
             camera.startPreview();
         }
+    }
+
+    private void SetCameraSize(Camera.Parameters parameters, String cameraResolution) {
+        String[] dims = cameraResolution.split("x", 2);
+        int preferredCameraWidth = Integer.parseInt(dims[0]);
+        int preferredCameraHeight = Integer.parseInt(dims[1]);
+        float preferredAspectRatio = ((float)preferredCameraWidth) / preferredCameraHeight;
+        //Look for highest supported preview size and use that one.
+        List<Camera.Size> previewSizes = parameters.getSupportedPreviewSizes();
+        int width = -1;
+        int height = -1;
+
+        for (Camera.Size size: previewSizes) {
+            if (size.width == preferredCameraWidth && size.height == preferredCameraHeight) {
+                parameters.setPreviewSize(preferredCameraWidth, preferredCameraHeight);
+                return;
+            } else if (Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < 0.0001 && (width == -1 || (width < preferredCameraWidth && size.width > width) || (size.width < width && size.width >= preferredCameraWidth))) {
+                width = size.width;
+                height = size.height;
+            }
+        }
+
+        if (width == -1) {
+            // find closest aspect ratio
+            float aspectRatio = -1;
+            for (Camera.Size size: previewSizes) {
+                if (aspectRatio == -1 || Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < Math.abs(aspectRatio - preferredAspectRatio)) {
+                    width = size.width;
+                    height = size.height;
+                    aspectRatio = ((float)width) / height;
+                } else if ((Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < Math.abs(aspectRatio - preferredAspectRatio) + 0.0001) && (size.width < width && size.width >= preferredCameraWidth)) {
+                    width = size.width;
+                    height = size.height;
+                }
+            }
+        }
+
+        parameters.setPreviewSize(width, height);
     }
 
     // Camera.PreviewCallback methods.
