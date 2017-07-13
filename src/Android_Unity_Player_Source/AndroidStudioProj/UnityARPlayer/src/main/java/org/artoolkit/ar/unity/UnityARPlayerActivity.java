@@ -85,7 +85,9 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
     private DisplayControl mDisplayControl = null;
 
     protected final static int PERMISSION_REQUEST_CAMERA = 77;
-    private int mCameraIndex = -1;
+    private int mCameraIndex = -1; // -1: not configured; 0: rear camera, 1: front camera
+    private int mRealCameraIndex = -1;
+    private int mCameraOrientation = -1;
 
 
     /**
@@ -200,11 +202,27 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
         }
     }
 
-    void setCamera(int cameraIndex) {
+    int setCamera(int cameraIndex) {
         if (cameraIndex == mCameraIndex)
-            return;
+            return mCameraOrientation;
 
         mCameraIndex = cameraIndex;
+        mRealCameraIndex = cameraIndex;
+        mCameraOrientation = 0;
+
+        if (cameraIndex > 0) {
+            // front facing camera
+            int cameraCount = Camera.getNumberOfCameras();
+            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+            for (int camIndex = 0; camIndex < cameraCount; camIndex++) {
+                Camera.getCameraInfo(camIndex, cameraInfo);
+                if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                    mRealCameraIndex = camIndex;
+                    mCameraOrientation = cameraInfo.orientation;
+                    break;
+                }
+            }
+        }
 
         runOnUiThread(new Runnable() {
             @Override
@@ -212,6 +230,7 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
                 updateDecorView();
             }
         });
+        return mCameraOrientation;
     }
 
     void updateDecorView() {
@@ -226,21 +245,8 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
             return;
 
         // Create the camera preview.
-        int cameraIndex = mCameraIndex;
-        if (cameraIndex != 0) {
-            // front facing camera
-            int cameraCount = Camera.getNumberOfCameras();
-            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-            for (int camIndex = 0; camIndex < cameraCount; camIndex++) {
-                Camera.getCameraInfo(camIndex, cameraInfo);
-                if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                    cameraIndex = camIndex;
-                    break;
-                }
-            }
-        }
 
-        previewView = new CameraSurface(this, cameraIndex);
+        previewView = new CameraSurface(this, mRealCameraIndex);
         decorView.addView(previewView, new LayoutParams(128, 128));
     }
 }
