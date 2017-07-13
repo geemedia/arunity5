@@ -75,10 +75,11 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
     private int mCameraIndex = 0;
 
     @SuppressWarnings("deprecation")
-    public CameraSurface(Context context) {
+    public CameraSurface(Context context, int cameraIndex) {
 
         super(context);
 
+        mCameraIndex = cameraIndex;
         SurfaceHolder holder = getHolder();
         holder.addCallback(this);
         holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS); // Deprecated in API level 11. Still required for API levels <= 10.
@@ -92,8 +93,7 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
         Log.i(TAG, "Opening camera.");
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
-                int cameraIndex = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(getContext()).getString("pref_cameraIndex", "0"));
-                camera = Camera.open(cameraIndex);
+                camera = Camera.open(mCameraIndex);
             } else {
                 camera = Camera.open();
             }
@@ -156,12 +156,10 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
             int pixelformat = parameters.getPreviewFormat(); // android.graphics.imageformat
             PixelFormat pixelinfo = new PixelFormat();
             PixelFormat.getPixelFormatInfo(pixelformat, pixelinfo);
-            int cameraIndex = 0;
             boolean frontFacing = false;
 
             Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-            cameraIndex = Integer.parseInt(PreferenceManager.getDefaultSharedPreferences(getContext()).getString("pref_cameraIndex", "0"));
-            Camera.getCameraInfo(cameraIndex, cameraInfo);
+            Camera.getCameraInfo(mCameraIndex, cameraInfo);
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) frontFacing = true;
 
             int bufSize = capWidth * capHeight * pixelinfo.bitsPerPixel / 8; // For the default NV21 format, bitsPerPixel = 12.
@@ -173,7 +171,6 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
             // so we can't init the video here. So save values for later init.
             mWidth = capWidth;
             mHeight = capHeight;
-            mCameraIndex = cameraIndex;
             mCameraIsFrontFacing = frontFacing;
 
             camera.startPreview();
@@ -194,7 +191,7 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
             if (size.width == preferredCameraWidth && size.height == preferredCameraHeight) {
                 parameters.setPreviewSize(preferredCameraWidth, preferredCameraHeight);
                 return;
-            } else if (Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < 0.0001 && (width == -1 || (width < preferredCameraWidth && size.width > width) || (size.width < width && size.width >= preferredCameraWidth))) {
+            } else if (Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < 0.0001 && (width == -1 || (width > preferredCameraWidth && size.width < width) || (size.width > width && size.width <= preferredCameraWidth))) {
                 width = size.width;
                 height = size.height;
             }
@@ -208,7 +205,7 @@ public class CameraSurface extends SurfaceView implements SurfaceHolder.Callback
                     width = size.width;
                     height = size.height;
                     aspectRatio = ((float)width) / height;
-                } else if ((Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < Math.abs(aspectRatio - preferredAspectRatio) + 0.0001) && (size.width < width && size.width >= preferredCameraWidth)) {
+                } else if ((Math.abs((((float)size.width) / size.height) - preferredAspectRatio) < Math.abs(aspectRatio - preferredAspectRatio) + 0.0001) && ((width > preferredCameraWidth && size.width < width) || (size.width > width && size.width <= preferredCameraWidth))) {
                     width = size.width;
                     height = size.height;
                 }

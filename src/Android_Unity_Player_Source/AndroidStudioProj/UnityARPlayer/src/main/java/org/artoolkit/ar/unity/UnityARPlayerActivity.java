@@ -52,6 +52,7 @@ package org.artoolkit.ar.unity;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -84,6 +85,7 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
     private DisplayControl mDisplayControl = null;
 
     protected final static int PERMISSION_REQUEST_CAMERA = 77;
+    private int mCameraIndex = -1;
 
 
     /**
@@ -164,13 +166,8 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
         super.onResume();
 
         // Add camera preview as a new view.
-
-        ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
-
-        // Create the camera preview.
-        previewView = new CameraSurface(this);
-        decorView.addView(previewView, new LayoutParams(128, 128));
-
+        if (mCameraIndex != -1)
+            updateDecorView();
         Log.i(TAG, "onResume() - All done!");
     }
 
@@ -201,6 +198,50 @@ public class UnityARPlayerActivity extends UnityPlayerNativeActivity {
             //set2d3d(dimension);
             mDisplayControl.setMode(stereo ? DisplayControl.DISPLAY_MODE_3D : DisplayControl.DISPLAY_MODE_2D, stereo); // Last parameter is 'toast'.
         }
+    }
+
+    void setCamera(int cameraIndex) {
+        if (cameraIndex == mCameraIndex)
+            return;
+
+        mCameraIndex = cameraIndex;
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                updateDecorView();
+            }
+        });
+    }
+
+    void updateDecorView() {
+        ViewGroup decorView = (ViewGroup) getWindow().getDecorView();
+
+        if (previewView != null) {
+            decorView.removeView(previewView);
+            previewView = null;
+        }
+
+        if (mCameraIndex == -1)
+            return;
+
+        // Create the camera preview.
+        int cameraIndex = mCameraIndex;
+        if (cameraIndex != 0) {
+            // front facing camera
+            int cameraCount = Camera.getNumberOfCameras();
+            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+            for (int camIndex = 0; camIndex < cameraCount; camIndex++) {
+                Camera.getCameraInfo(camIndex, cameraInfo);
+                if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                    cameraIndex = camIndex;
+                    break;
+                }
+            }
+        }
+
+        previewView = new CameraSurface(this, cameraIndex);
+        decorView.addView(previewView, new LayoutParams(128, 128));
     }
 }
 
